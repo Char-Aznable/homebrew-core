@@ -3,7 +3,7 @@ class JsonGlib < Formula
   homepage "https://wiki.gnome.org/Projects/JsonGlib"
   url "https://download.gnome.org/sources/json-glib/1.4/json-glib-1.4.4.tar.xz"
   sha256 "720c5f4379513dc11fd97dc75336eb0c0d3338c53128044d9fabec4374f4bc47"
-  revision 1
+  revision OS.mac? ? 1 : 2
 
   bottle do
     sha256 "223b5472cc71a1eea8efc818d66fa8e6ff05a4aff45d60d4deccba54f82d39dd" => :mojave
@@ -23,10 +23,27 @@ class JsonGlib < Formula
   def install
     ENV.refurbish_args
 
+    unless OS.mac?
+      # set rpath for binaries
+      inreplace "json-glib/meson.build", /(library.*?install\s*:\s*true)/m, "\\1, install_rpath: '#{ENV.determine_rpath_paths(self)}'"
+      inreplace "json-glib/meson.build", /(executable.*?install\s*:\s*true)/m, "\\1, install_rpath: '#{ENV.determine_rpath_paths(self)}'"
+    end
+
     mkdir "build" do
       system "meson", "--prefix=#{prefix}", ".."
       system "ninja"
       system "ninja", "install"
+    end
+
+    unless OS.mac?
+      # move lib64 to lib and symlink lib64 -> lib
+      lib64 = Pathname.new "#{lib}64"
+      if lib64.directory?
+        mkdir_p lib
+        system "mv #{lib64}/* #{lib}/"
+        rmdir lib64
+        prefix.install_symlink "lib" => "lib64"
+      end
     end
   end
 
